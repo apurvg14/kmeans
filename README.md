@@ -2,7 +2,7 @@
 This is a kmeans implementation from scratch using Numpy on the Iris dataset.
 
 The script provides the following optional arguments:
-- Choose the initialisation type for kmeans - [*kmeans++*](https://en.wikipedia.org/wiki/K-means%2B%2B) or random([*forgy*](https://en.wikipedia.org/wiki/K-means_clustering#Algorithms) (see initialisation methods)) initialisation. Default is random(forgy) initialisation.
+- Choose the initialisation type for kmeans - [*kmeans++*](https://en.wikipedia.org/wiki/K-means%2B%2B) or random ([*forgy*](https://en.wikipedia.org/wiki/K-means_clustering#Algorithms)) initialisation. Default is random(forgy) initialisation.
 - Choose the distance metric to use. Default is the  `L2` norm.
 - Choose the number of clusters to perform kmeans or select the optimal number of clusters using the silhouette score.
 
