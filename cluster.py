@@ -15,11 +15,14 @@ Parser arguments
 '''
 parser = argparse.ArgumentParser(description='Info about cluster.py parameters.')
 parser.add_argument('-p', '--norm_number', help='Specify the norm that you want to use.', required=False, default=2)
-parser.add_argument('-k', '--num_clusters', help='Specify the number of clusters you want to make.', required=False, default=3)
-parser.add_argument('-m', '--data_transform', help='Specify the kind of data transform you want to apply.', required=False, choices = ["unchanged", "normalised", "standardised"], default="unchanged")
-parser.add_argument('-i', '--init_mode', help='Specify the kind of cluster initialisation you want to use.', required=False, choices = ["plus plus", "forgy"], default="plus plus")
-parser.add_argument('-s', '--perform_silhouette', help='Perform Silhouette score test to determine optimal number of '
-                                                       'clusters.', action='store_true', required=False)
+parser.add_argument('-k', '--num_clusters', help='Specify the number of clusters you want to make.', required=False,
+                    default=3)
+parser.add_argument('-m', '--data_transform', help='Specify the kind of data transform you want to apply.',
+                    required=False, choices=["unchanged", "normalised", "standardised"], default="unchanged")
+parser.add_argument('-i', '--init_mode', help='Specify the kind of cluster initialisation you want to use.',
+                    required=False, choices=["plusplus", "forgy"], default="plusplus")
+parser.add_argument('-s', '--perform_silhouette', help='Use Silhouette score test to find optimal number of clusters.',
+                    action='store_true', required=False)
 
 args = vars(parser.parse_args())
 print("Chosen arguments:", args)
@@ -36,14 +39,14 @@ reproducible = True
 
 
 # Standardise the 2D array by subtracting mean and dividing by standard deviation, column wise
-def standardise_ndarray(A):
-    return (A - np.mean(A, axis=0)) / np.std(A, axis=0)
+def standardise_ndarray(a):
+    return (a - np.mean(a, axis=0)) / np.std(a, axis=0)
 
 
 # Normalise the 2D array by dividing by sum to bring values between 0 and 1, column wise
-def normalise_ndarray(A):
-    col_sums = A.sum(axis=0)
-    return A / col_sums[np.newaxis, :]
+def normalise_ndarray(a):
+    col_sums = a.sum(axis=0)
+    return a / col_sums[np.newaxis, :]
 
 
 # Custom prediction function for k-means
@@ -52,7 +55,7 @@ def kmeans_predict(instance, means):
     return np.argmin([np.linalg.norm((i - instance), ord=norm_number) for i in means])
 
 
-# Function to return clusters obtained from kmeans++ initialisation
+# Function to return clusters obtained from kmeansplusplus initialisation
 def plus_plus(data):
     global norm_number
     global num_clusters
@@ -86,6 +89,7 @@ permutations, to find out which gets the max accuracy.
 
 def get_max_acc(curr_predictions, ground_truth):
     global num_clusters
+    preds = curr_predictions
     if reproducible:
         random.seed(seed_init)
     max_acc = 0
@@ -109,12 +113,13 @@ def normed_kmeans(x_train):
     global reproducible
     global init_mode
 
+    cluster_means = []
     if reproducible:
         random.seed(seed_init)
     if init_mode == "forgy":
         idx = random.choices(range(x_train.shape[0]), k=num_clusters)
         cluster_means = x_train[idx, :]
-    elif init_mode == "plus plus":
+    elif init_mode == "plusplus":
         cluster_means = plus_plus(x_train)
 
     error = 1
@@ -142,6 +147,7 @@ def silhouette_score(data, k):
     for i in range(data.shape[0]):
         distances_same_cluster = [np.linalg.norm((data[i] - data[j]), ord=norm_number) for j in range(len(predictions))
                                   if (predictions[j] == predictions[i]) and (i != j)]
+        a_i = 0.0
         if len(distances_same_cluster):
             a_i = np.mean(distances_same_cluster)
         min_val = np.inf
@@ -161,8 +167,8 @@ def silhouette_score(data, k):
 
 
 # Load the csv files using Numpy
-train_data = np.loadtxt("iris_train.csv", delimiter=",", dtype="str")
-test_data = np.loadtxt("iris_test.csv", delimiter=",", dtype="str")
+train_data = np.loadtxt("./data/iris_train.csv", delimiter=",", dtype="str")
+test_data = np.loadtxt("./data/iris_test.csv", delimiter=",", dtype="str")
 
 # Divide the data into features (x) and labels (y) and convert all value to Numpy floats
 x_train, y_train = train_data[:, 0:4].astype(np.float), train_data[:, 4]
@@ -185,20 +191,40 @@ elif args["data_transform"] == "standardised":
     x_train = standardise_ndarray(x_train)
     x_test = standardise_ndarray(x_test)
 
+# Get the cluster means
 cluster_means = normed_kmeans(x_train)
-predictions = [kmeans_predict(i, cluster_means) for i in x_test]
-predictions, accuracy = get_max_acc(predictions, y_test_num)
-print("Accuracy by taking unchanged data:", accuracy)
 
-if perform_silhouette:
-    y_vals = [silhouette_score(x_train, k) for k in range(2, 11)]
-    plt.plot(np.arange(2, 11), y_vals)
+# Predict on test data
+predictions = [kmeans_predict(i, cluster_means) for i in x_test]
+predictions_test, accuracy_test = get_max_acc(predictions, y_test_num)
+print("Test accuracy by taking", args["data_transform"], "data:", accuracy_test, "using", num_clusters, "clusters and", norm_number, "norm.")
+
+# Predict on train data
+predictions = [kmeans_predict(i, cluster_means) for i in x_train]
+predictions_train, accuracy_train = get_max_acc(predictions, y_train_num)
+print("Train accuracy by taking", args["data_transform"], "data:", accuracy_test, "using", num_clusters, "clusters and", norm_number, "norm.")
 
 # Plot the kmeans clustering results along with cluster means, for first two features
+cluster_labels = {'cluster 1': 0, 'cluster 2': 1, 'cluster 3': 2}
 for i in range(len(cluster_means)):
-    plt.scatter(cluster_means[i][0], cluster_means[i][1], color=colors[i], marker="^", s=20)
+    plt.scatter(cluster_means[i][0], cluster_means[i][1], color=colors[i], label=cluster_labels.keys()[i], marker="^", s=20)
 
 for i in x_test_standardised:
-    plt.scatter(i[0], i[1], color=colors[kmeans_predict(i, cluster_means, 1)], s=5)
+    plt.scatter(i[0], i[1], color=colors[kmeans_predict(i, cluster_means)], label=cluster_labels.keys()[i],s=5)
 
-plt.show()
+plt.xlabel('First feature', fontsize = 18)
+plt.ylabel('Second feature', fontsize = 18)
+plt.title('Cluster labels for points')
+plt.legend(bbox_to_anchor=(0.0, 1), loc='upper left', fontsize = 12, ncol=3)
+plt.rc('grid', linestyle="dotted", color='gray')
+plt.grid(True)
+plt.savefig('./outputs/feature12_norm' + str(norm_number) + '_clusters' + num_clusters + '_init' + init_mode + '_' + args["data_transform"] + '_output.jpg', format='jpg', dpi=600)
+
+print("Plot saved in the outputs folder. :)")
+
+if perform_silhouette:
+    print("Performing silhouette score analysis to determine best k value for k-means...")
+    y_vals = [silhouette_score(x_train, k) for k in range(2, 11)]
+    plt.plot(np.arange(2, 11), y_vals)
+    print("Plot saved in the outputs folder. :)")
+
