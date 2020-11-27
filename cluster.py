@@ -8,7 +8,7 @@ import itertools
 import matplotlib.pyplot as plt
 import random
 
-colors = ["red", "green", "blue", "pink", "brown", "magenta", "black", "gold", "cyan", "hotpink", "lime"]
+colors = ["red", "green", "blue", "black", "yellow", "magenta", "pink", "gold", "cyan", "hotpink", "lime"]
 
 '''
 Parser arguments
@@ -141,6 +141,8 @@ def normed_kmeans(x_train):
 def silhouette_score(data, k):
     global norm_number
     global init_mode
+    global num_clusters
+    num_clusters = k
     cluster_means = normed_kmeans(data)
     predictions = [kmeans_predict(i, cluster_means) for i in data]
     silhouette_scores = []
@@ -171,25 +173,28 @@ train_data = np.loadtxt("./data/iris_train.csv", delimiter=",", dtype="str")
 test_data = np.loadtxt("./data/iris_test.csv", delimiter=",", dtype="str")
 
 # Divide the data into features (x) and labels (y) and convert all value to Numpy floats
-x_train, y_train = train_data[:, 0:4].astype(np.float), train_data[:, 4]
-x_test, y_test = test_data[:, 0:4].astype(np.float), test_data[:, 4]
+x_train_orig, y_train = train_data[:, 0:4].astype(np.float), train_data[:, 4]
+x_test_orig, y_test = test_data[:, 0:4].astype(np.float), test_data[:, 4]
 
 # Create label dictionary
-name_dict = {'Iris-setosa': 0, 'Iris-versicolor': 1, 'Iris-virginica': 2}
+name_dict = {'Iris-setosa': 0, 'Iris-versicolor': 1, 'Iris-virginica': 2, 'New cluster 1':3, 'New cluster 2':4}
 y_train_num = [name_dict[i] for i in y_train]
 y_test_num = [name_dict[i] for i in y_test]
 
 classes = list(set(y_train))
 num_clusters_original = len(classes)
-print("Number of labels in the train set:", num_clusters_original)
+print("Number of classes in the train set:", num_clusters_original)
+print("Number of clusters specified by user:", num_clusters)
 
 # Apply chosen transform on data
+x_train = x_train_orig
+x_test = x_test_orig
 if args["data_transform"] == "normalised":
-    x_train = normalise_ndarray(x_train)
-    x_test = normalise_ndarray(x_test)
+    x_train = normalise_ndarray(x_train_orig)
+    x_test = normalise_ndarray(x_test_orig)
 elif args["data_transform"] == "standardised":
-    x_train = standardise_ndarray(x_train)
-    x_test = standardise_ndarray(x_test)
+    x_train = standardise_ndarray(x_train_orig)
+    x_test = standardise_ndarray(x_test_orig)
 
 # Get the cluster means
 cluster_means = normed_kmeans(x_train)
@@ -197,44 +202,55 @@ cluster_means = normed_kmeans(x_train)
 # Predict on test data
 predictions = [kmeans_predict(i, cluster_means) for i in x_test]
 predictions_test, accuracy_test = get_max_acc(predictions, y_test_num)
-print("Test accuracy by taking", args["data_transform"], "data:", accuracy_test, "using", num_clusters, "clusters and", norm_number, "norm.")
+if num_clusters == num_clusters_original:
+    print("Test accuracy by taking", args["data_transform"], "data:", accuracy_test, "using", num_clusters, "clusters and", norm_number, "norm.")
 
 # Predict on train data
 predictions = [kmeans_predict(i, cluster_means) for i in x_train]
 predictions_train, accuracy_train = get_max_acc(predictions, y_train_num)
-print("Train accuracy by taking", args["data_transform"], "data:", accuracy_test, "using", num_clusters, "clusters and", norm_number, "norm.")
+if num_clusters == num_clusters_original:
+    print("Train accuracy by taking", args["data_transform"], "data:", accuracy_test, "using", num_clusters, "clusters and", norm_number, "norm.")
+
+# Save the predictions
+predictions_train = [list(name_dict.keys())[list(name_dict.values()).index(i)] for i in predictions_train]
+predictions_test = [list(name_dict.keys())[list(name_dict.values()).index(i)] for i in predictions_test]
+x_train_file = np.hstack((train_data, np.atleast_2d(np.array(predictions_train)).T))
+x_test_file = np.hstack((test_data, np.atleast_2d(np.array(predictions_test)).T))
+
+np.savetxt('./predictions/norm' + str(norm_number) + '_clusters' + str(num_clusters) + '_' + init_mode + '_' + args["data_transform"] + '_train_predictions.csv', x_train_file, delimiter=",", header="Feature1,Feature2,Feature3,Feature4,Groundtruth,Prediction", fmt='%s,%s,%s,%s,%s,%s', comments='')
+np.savetxt('./predictions/norm' + str(norm_number) + '_clusters' + str(num_clusters) + '_' + init_mode + '_' + args["data_transform"] + '_test_predictions.csv', x_test_file, delimiter=",", header="Feature1,Feature2,Feature3,Feature4,Groundtruth,Prediction", fmt='%s,%s,%s,%s,%s,%s', comments='')
 
 # Plot the kmeans clustering results along with cluster means, for first two features
 plt.clf()
+plt.cla()
 for i in range(len(cluster_means)):
     plt.scatter(cluster_means[i][0], cluster_means[i][1], color=colors[i], label='cluster '+str(i), marker="^", s=20)
 
 for i in x_test:
-    plt.scatter(i[0], i[1], color=colors[kmeans_predict(i, cluster_means)],s=10)
+    plt.scatter(i[0], i[1], color=colors[kmeans_predict(i, cluster_means)],s=15)
 
-plt.xlabel('First feature', fontsize = 12)
-plt.ylabel('Second feature', fontsize = 12)
+plt.xlabel('First feature', fontsize = 10)
+plt.ylabel('Second feature', fontsize = 10)
 plt.title('Cluster labels for points')
-plt.legend(bbox_to_anchor=(0.0, 1), loc='upper left', fontsize = 9, ncol=1)
-plt.rc('grid', linestyle="dotted", color='gray', linewidth=0.5)
+plt.legend(bbox_to_anchor=(0.0, 1), loc='upper left', fontsize = 8, ncol=1)
+plt.rc('grid', linestyle="dashed", color='gray', linewidth=0.1)
 plt.grid(True)
-plt.savefig('./outputs/feature12_norm' + str(norm_number) + '_clusters' + str(num_clusters) + '_init' + init_mode + '_' + args["data_transform"] + '_output.jpg', format='jpg', dpi=600)
+plt.savefig('./plots/feature12_norm' + str(norm_number) + '_clusters' + str(num_clusters) + '_' + init_mode + '_' + args["data_transform"] + '_output.jpg', format='jpg', dpi=600)
 
-print("Plot saved in the outputs folder. :)")
-
-if perform_silhouette:
+if perform_silhouette and (num_clusters==num_clusters_original):
     print("Performing silhouette score analysis to determine best k value for k-means...")
     y_vals = [silhouette_score(x_train, k) for k in range(2, 11)]
     plt.clf()
+    plt.cla()
+    # plt.ylim(0, 1)
     plt.plot(np.arange(2, 11), y_vals, marker='o', linestyle = "dashed", markersize=5, linewidth = 1)
 
     plt.xlabel('Number of clusters', fontsize=12)
     plt.ylabel('Silhouette score', fontsize=12)
     plt.title('Silhouette score analysis')
-    plt.rc('grid', linestyle="dotted", color='gray', linewidth=0.5)
+    plt.rc('grid', linestyle="dashed", color='gray', linewidth=0.1)
     plt.grid(True)
 
-    plt.savefig('./outputs/feature12_norm' + str(norm_number) + '_init' + init_mode + '_' +args["data_transform"] + 'silhouette.jpg', format='jpg', dpi=600)
-    print("Plot saved in the outputs folder. :)")
+    plt.savefig('./plots/norm' + str(norm_number) + '_' + init_mode + '_' +args["data_transform"] + '_silhouette.jpg', format='jpg', dpi=600)
 
 print("\n****************************************\n")
