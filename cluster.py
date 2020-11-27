@@ -26,8 +26,8 @@ parser.add_argument('-s', '--perform_silhouette', help='Use Silhouette score tes
 
 args = vars(parser.parse_args())
 print("Chosen arguments:", args)
-norm_number = args["norm_number"]
-num_clusters = args["num_clusters"]
+norm_number = int(args["norm_number"])
+num_clusters = int(args["num_clusters"])
 init_mode = args["init_mode"]
 perform_silhouette = args["perform_silhouette"]
 
@@ -205,26 +205,36 @@ predictions_train, accuracy_train = get_max_acc(predictions, y_train_num)
 print("Train accuracy by taking", args["data_transform"], "data:", accuracy_test, "using", num_clusters, "clusters and", norm_number, "norm.")
 
 # Plot the kmeans clustering results along with cluster means, for first two features
-cluster_labels = {'cluster 1': 0, 'cluster 2': 1, 'cluster 3': 2}
+plt.clf()
 for i in range(len(cluster_means)):
-    plt.scatter(cluster_means[i][0], cluster_means[i][1], color=colors[i], label=cluster_labels.keys()[i], marker="^", s=20)
+    plt.scatter(cluster_means[i][0], cluster_means[i][1], color=colors[i], label='cluster '+str(i), marker="^", s=20)
 
-for i in x_test_standardised:
-    plt.scatter(i[0], i[1], color=colors[kmeans_predict(i, cluster_means)], label=cluster_labels.keys()[i],s=5)
+for i in x_test:
+    plt.scatter(i[0], i[1], color=colors[kmeans_predict(i, cluster_means)],s=10)
 
-plt.xlabel('First feature', fontsize = 18)
-plt.ylabel('Second feature', fontsize = 18)
+plt.xlabel('First feature', fontsize = 12)
+plt.ylabel('Second feature', fontsize = 12)
 plt.title('Cluster labels for points')
-plt.legend(bbox_to_anchor=(0.0, 1), loc='upper left', fontsize = 12, ncol=3)
-plt.rc('grid', linestyle="dotted", color='gray')
+plt.legend(bbox_to_anchor=(0.0, 1), loc='upper left', fontsize = 9, ncol=1)
+plt.rc('grid', linestyle="dotted", color='gray', linewidth=0.5)
 plt.grid(True)
-plt.savefig('./outputs/feature12_norm' + str(norm_number) + '_clusters' + num_clusters + '_init' + init_mode + '_' + args["data_transform"] + '_output.jpg', format='jpg', dpi=600)
+plt.savefig('./outputs/feature12_norm' + str(norm_number) + '_clusters' + str(num_clusters) + '_init' + init_mode + '_' + args["data_transform"] + '_output.jpg', format='jpg', dpi=600)
 
 print("Plot saved in the outputs folder. :)")
 
 if perform_silhouette:
     print("Performing silhouette score analysis to determine best k value for k-means...")
     y_vals = [silhouette_score(x_train, k) for k in range(2, 11)]
-    plt.plot(np.arange(2, 11), y_vals)
+    plt.clf()
+    plt.plot(np.arange(2, 11), y_vals, marker='o', linestyle = "dashed", markersize=5, linewidth = 1)
+
+    plt.xlabel('Number of clusters', fontsize=12)
+    plt.ylabel('Silhouette score', fontsize=12)
+    plt.title('Silhouette score analysis')
+    plt.rc('grid', linestyle="dotted", color='gray', linewidth=0.5)
+    plt.grid(True)
+
+    plt.savefig('./outputs/feature12_norm' + str(norm_number) + '_init' + init_mode + '_' +args["data_transform"] + 'silhouette.jpg', format='jpg', dpi=600)
     print("Plot saved in the outputs folder. :)")
 
+print("\n****************************************\n")
